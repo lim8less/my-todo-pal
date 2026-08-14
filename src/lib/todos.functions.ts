@@ -33,56 +33,50 @@ export const listTodos = createServerFn({ method: "GET" }).handler(async (): Pro
 
 export const createTodo = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => todoInput.parse(data))
-  .handler(async ({ data }): Promise<Todo> => {
+  .handler(async ({ data }): Promise<{ ok: true }> => {
     await ensureSchema();
-    const result = await runSql(
+    await runSql(
       `INSERT INTO ${TODOS_TABLE} (title, description, priority, due_date)
-       VALUES (${sqlLiteral(data.title)}, ${sqlLiteral(data.description?.length ? data.description : null)}, ${sqlLiteral(data.priority)}, ${sqlLiteral(data.due_date ?? null)})
-       RETURNING ${SELECT_COLUMNS}`,
+       VALUES (${sqlLiteral(data.title)}, ${sqlLiteral(data.description?.length ? data.description : null)}, ${sqlLiteral(data.priority)}, ${sqlLiteral(data.due_date ?? null)})`,
     );
-    const row = result.rows[0];
-    if (!row) throw new Error("Task could not be created");
-    return mapTodo(row);
+    return { ok: true };
   });
 
 export const updateTodo = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => todoInput.extend({ id: z.number().int().positive() }).parse(data))
-  .handler(async ({ data }): Promise<Todo> => {
+  .inputValidator((data: unknown) =>
+    todoInput.extend({ id: z.number().int().positive() }).parse(data),
+  )
+  .handler(async ({ data }): Promise<{ ok: true }> => {
     await ensureSchema();
-    const result = await runSql(
+    await runSql(
       `UPDATE ${TODOS_TABLE} SET
          title = ${sqlLiteral(data.title)},
          description = ${sqlLiteral(data.description?.length ? data.description : null)},
          priority = ${sqlLiteral(data.priority)},
          due_date = ${sqlLiteral(data.due_date ?? null)},
          updated_at = NOW()
-       WHERE id = ${sqlLiteral(data.id)}
-       RETURNING ${SELECT_COLUMNS}`,
+       WHERE id = ${sqlLiteral(data.id)}`,
     );
-    const row = result.rows[0];
-    if (!row) throw new Error("Task not found");
-    return mapTodo(row);
+    return { ok: true };
   });
 
 export const toggleTodo = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
     z.object({ id: z.number().int().positive(), completed: z.boolean() }).parse(data),
   )
-  .handler(async ({ data }): Promise<Todo> => {
+  .handler(async ({ data }): Promise<{ ok: true }> => {
     await ensureSchema();
-    const result = await runSql(
+    await runSql(
       `UPDATE ${TODOS_TABLE} SET completed = ${sqlLiteral(data.completed)}, updated_at = NOW()
-       WHERE id = ${sqlLiteral(data.id)} RETURNING ${SELECT_COLUMNS}`,
+       WHERE id = ${sqlLiteral(data.id)}`,
     );
-    const row = result.rows[0];
-    if (!row) throw new Error("Task not found");
-    return mapTodo(row);
+    return { ok: true };
   });
 
 export const deleteTodo = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => z.object({ id: z.number().int().positive() }).parse(data))
-  .handler(async ({ data }): Promise<{ id: number }> => {
+  .handler(async ({ data }): Promise<{ ok: true }> => {
     await ensureSchema();
     await runSql(`DELETE FROM ${TODOS_TABLE} WHERE id = ${sqlLiteral(data.id)}`);
-    return { id: data.id };
+    return { ok: true };
   });
